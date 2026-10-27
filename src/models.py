@@ -39,3 +39,136 @@ class Mapa:
 
     def __repr__(self) -> str:
         return f"Mapa({self.filas}x{self.columnas}, inicio={self.inicio})"
+
+
+class Estado:
+    """
+    Definición formal del estado del agente de rescate.
+    Estado: (fila, columna, conjunto_de_victimas_vivas, tick_actual)
+
+    Atributos:
+    - fila, columna: posición actual del agente en la cuadrícula.
+    - victimas_vivas: frozenset con los IDs de las víctimas que no han muerto ni han sido rescatadas.
+    - tick_actual: número de movimientos realizados hasta este estado.
+    - victimas_rescatadas: frozenset con los IDs de las víctimas rescatadas con éxito.
+    - padre: referencia al estado anterior (para reconstruir la ruta de rescate).
+    - accion: acción tomada para llegar a este estado ('N', 'S', 'E', 'O').
+    """
+    def __init__(
+        self,
+        fila: int,
+        columna: int,
+        victimas_vivas: frozenset,
+        tick_actual: int = 0,
+        victimas_rescatadas: frozenset = frozenset(),
+        padre: "Estado" = None,
+        accion: str = None
+    ):
+        self.fila = fila
+        self.columna = columna
+        self.victimas_vivas = victimas_vivas
+        self.tick_actual = tick_actual
+        self.victimas_rescatadas = victimas_rescatadas
+        self.padre = padre
+        self.accion = accion
+
+    def __hash__(self) -> int:
+        """
+        Permite usar el Estado en sets (conjuntos de visitados) y como llaves de diccionarios.
+        El hash se basa exclusivamente en la definición formal:
+        (fila, columna, conjunto_de_víctimas_vivas, tick_actual).
+        """
+        return hash((self.fila, self.columna, self.victimas_vivas, self.tick_actual))
+
+    def __eq__(self, otro: object) -> bool:
+        if not isinstance(otro, Estado):
+            return False
+        return (
+            self.fila == otro.fila and
+            self.columna == otro.columna and
+            self.victimas_vivas == otro.victimas_vivas and
+            self.tick_actual == otro.tick_actual
+        )
+
+    def generar_sucesores(self, mapa: Mapa, dict_victimas: dict) -> List["Estado"]:
+        """
+        Genera los estados sucesores válidos aplicando las 4 acciones cardinales:
+        Norte (-1, 0), Sur (1, 0), Este (0, 1), Oeste (0, -1).
+
+        Reglas:
+        1. El agente no puede moverse a celdas con pared '#'.
+        2. Cada movimiento incrementa el tick en 1 (costo = 1 tick).
+        3. Si la nueva posición coincide con una víctima viva y tick_nuevo <= tick_supervivencia, es rescatada.
+        4. Cualquier víctima viva cuyo tiempo expire (tick_nuevo > tick_supervivencia) muere en este turno.
+        """
+        sucesores = []
+        # Definición de movimientos: (nombre_accion, delta_fila, delta_columna)
+        movimientos = [
+            ('N', -1, 0),
+            ('S', 1, 0),
+            ('E', 0, 1),
+            ('O', 0, -1)
+        ]
+
+        nuevo_tick = self.tick_actual + 1
+
+        for accion, df, dc in movimientos:
+            nueva_fila = self.fila + df
+            nueva_col = self.columna + dc
+
+            # Restricción dura: no moverse a celdas con pared ni fuera de límites
+            if not mapa.es_posicion_valida(nueva_fila, nueva_col):
+                continue
+
+            nuevas_rescatadas = set(self.victimas_rescatadas)
+            nuevas_vivas = set()
+
+            # Revisar cada víctima que seguía viva en el estado padre
+            for id_v in self.victimas_vivas:
+                v = dict_victimas[id_v]
+                
+                # Caso 1: El agente llega a la posición de la víctima en este tick
+                if v.fila == nueva_fila and v.columna == nueva_col:
+                    if nuevo_tick <= v.ticks_supervivencia:
+                        nuevas_rescatadas.add(id_v)
+                    # Si no llegó a tiempo (nuevo_tick > v.ticks_supervivencia), muere (no entra a rescatadas)
+                else:
+                    # Caso 2: El agente no está en la celda de la víctima
+                    # Sigue viva únicamente si su tiempo aún no se ha vencido
+                    if nuevo_tick <= v.ticks_supervivencia:
+                        nuevas_vivas.add(id_v)
+                    # Si nuevo_tick > v.ticks_supervivencia, muere por tiempo agotado
+
+            nuevo_estado = Estado(
+                fila=nueva_fila,
+                columna=nueva_col,
+                victimas_vivas=frozenset(nuevas_vivas),
+                tick_actual=nuevo_tick,
+                victimas_rescatadas=frozenset(nuevas_rescatadas),
+                padre=self,
+                accion=accion
+            )
+            sucesores.append(nuevo_estado)
+
+        return sucesores
+
+    def reconstruir_camino(self) -> List[Tuple[str, int, int]]:
+        """
+        Reconstruye la secuencia de pasos desde el estado inicial hasta este estado.
+        Retorna una lista de tuplas: (accion, fila, columna).
+        """
+        camino = []
+        actual = self
+        while actual is not None:
+            camino.append((actual.accion, actual.fila, actual.columna))
+            actual = actual.padre
+        camino.reverse()
+        return camino
+
+    def __repr__(self) -> str:
+        return (
+            f"Estado(pos=({self.fila}, {self.columna}), "
+            f"tick={self.tick_actual}, "
+            f"vivas={set(self.victimas_vivas)}, "
+            f"rescatadas={set(self.victimas_rescatadas)})"
+        )
