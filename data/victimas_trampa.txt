@@ -1,0 +1,5 @@
+id,fila,columna,ticks_supervivencia
+V_trampa,5,1,8
+V_real1,1,9,16
+V_real2,5,9,22
+

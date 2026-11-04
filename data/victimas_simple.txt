@@ -1,0 +1,4 @@
+id,fila,columna,ticks_supervivencia
+V1,1,5,6
+V2,3,4,12
+
