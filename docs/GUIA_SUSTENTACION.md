@@ -70,14 +70,14 @@
 
 ### 💻 Caso A: *"Cambie el costo por paso de 1 tick a 2 ticks"*
 > **Qué hacer en el código:**
-> Vas a [`src/models.py`](file:///c:/Users/Ricar/Documents/GitHub/ai-rescue-agent/src/models.py), en la línea 133 dentro de `generar_sucesores`:
+> Vas a [`src/modelos_de_datos.py`](file:///c:/Users/Ricar/Documents/GitHub/ai-rescue-agent/src/modelos_de_datos.py), dentro del método `generar_estados_sucesores`:
 > Cambias:
 > ```python
-> nuevo_tick = self.tick_actual + 1
+> tick_despues_del_movimiento = self.tick_actual + 1
 > ```
 > Por:
 > ```python
-> nuevo_tick = self.tick_actual + 2
+> tick_despues_del_movimiento = self.tick_actual + 2
 > ```
 > ¡Y listo! Todas las transiciones, muertes y rescates se adaptarán automáticamente a 2 ticks por paso.
 
@@ -85,12 +85,12 @@
 
 ### 💻 Caso B: *"Permita que el agente se mueva en diagonales"*
 > **Qué hacer en el código:**
-> Vas a [`src/models.py`](file:///c:/Users/Ricar/Documents/GitHub/ai-rescue-agent/src/models.py), en la lista de movimientos dentro de `generar_sucesores`:
+> Vas a [`src/modelos_de_datos.py`](file:///c:/Users/Ricar/Documents/GitHub/ai-rescue-agent/src/modelos_de_datos.py), en la lista `direcciones_cardinales_posibles` dentro de `generar_estados_sucesores`:
 > Agregas las 4 diagonales:
 > ```python
-> movimientos = [
->     ('N', -1, 0), ('S', 1, 0), ('E', 0, 1), ('O', 0, -1),
->     ('NE', -1, 1), ('NO', -1, -1), ('SE', 1, 1), ('SO', 1, -1)
+> direcciones_cardinales_posibles = [
+>     ('Norte', -1, 0), ('Sur', 1, 0), ('Este', 0, 1), ('Oeste', 0, -1),
+>     ('Noreste', -1, 1), ('Noroeste', -1, -1), ('Sureste', 1, 1), ('Suroeste', 1, -1)
 > ]
 > ```
 
@@ -98,5 +98,4 @@
 
 ### 💻 Caso C: *"Muestre el camino recorrido con una línea o rastro en el Canvas"*
 > **Qué hacer en el código:**
-> En [`src/gui/app.py`](file:///c:/Users/Ricar/Documents/GitHub/ai-rescue-agent/src/gui/app.py), dentro de `_siguiente_paso_animacion`, cada vez que el agente da un paso se puede dibujar un pequeño punto o línea entre `(r_anterior, c_anterior)` y `(r, c)` con `self.canvas.create_line(...)`.
-
+> En [`src/interfaz_grafica/ventana_principal.py`](file:///c:/Users/Ricar/Documents/GitHub/ai-rescue-agent/src/interfaz_grafica/ventana_principal.py), dentro de `_siguiente_paso_animacion`, cada vez que el agente da un paso se puede dibujar un pequeño punto o línea en el canvas con `self.canvas.create_line(...)`.

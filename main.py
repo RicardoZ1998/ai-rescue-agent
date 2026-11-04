@@ -1,15 +1,10 @@
-"""
-Punto de entrada principal del Agente de Rescate con Víctimas en Riesgo.
-Lanza la interfaz gráfica de escritorio con Tkinter.
-"""
-
 import tkinter as tk
-from src.gui.app import AppRescate
+from src.interfaz_grafica.ventana_principal import AplicacionDeRescate
 
 def main():
-    root = tk.Tk()
-    app = AppRescate(root)
-    root.mainloop()
+    ventana_principal = tk.Tk()
+    aplicacion_de_rescate = AplicacionDeRescate(ventana_principal)
+    ventana_principal.mainloop()
 
 if __name__ == "__main__":
     main()
