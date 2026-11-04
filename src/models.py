@@ -75,10 +75,9 @@ class Estado:
     def __hash__(self) -> int:
         """
         Permite usar el Estado en sets (conjuntos de visitados) y como llaves de diccionarios.
-        El hash se basa exclusivamente en la definición formal:
-        (fila, columna, conjunto_de_víctimas_vivas, tick_actual).
+        El hash incluye la posición, las víctimas vivas, las rescatadas y el tick.
         """
-        return hash((self.fila, self.columna, self.victimas_vivas, self.tick_actual))
+        return hash((self.fila, self.columna, self.victimas_vivas, self.victimas_rescatadas, self.tick_actual))
 
     def __eq__(self, otro: object) -> bool:
         if not isinstance(otro, Estado):
@@ -87,6 +86,7 @@ class Estado:
             self.fila == otro.fila and
             self.columna == otro.columna and
             self.victimas_vivas == otro.victimas_vivas and
+            self.victimas_rescatadas == otro.victimas_rescatadas and
             self.tick_actual == otro.tick_actual
         )
 
@@ -102,7 +102,6 @@ class Estado:
         4. Cualquier víctima viva cuyo tiempo expire (tick_nuevo > tick_supervivencia) muere en este turno.
         """
         sucesores = []
-        # Definición de movimientos: (nombre_accion, delta_fila, delta_columna)
         movimientos = [
             ('N', -1, 0),
             ('S', 1, 0),
@@ -116,28 +115,21 @@ class Estado:
             nueva_fila = self.fila + df
             nueva_col = self.columna + dc
 
-            # Restricción dura: no moverse a celdas con pared ni fuera de límites
             if not mapa.es_posicion_valida(nueva_fila, nueva_col):
                 continue
 
             nuevas_rescatadas = set(self.victimas_rescatadas)
             nuevas_vivas = set()
 
-            # Revisar cada víctima que seguía viva en el estado padre
             for id_v in self.victimas_vivas:
                 v = dict_victimas[id_v]
                 
-                # Caso 1: El agente llega a la posición de la víctima en este tick
                 if v.fila == nueva_fila and v.columna == nueva_col:
                     if nuevo_tick <= v.ticks_supervivencia:
                         nuevas_rescatadas.add(id_v)
-                    # Si no llegó a tiempo (nuevo_tick > v.ticks_supervivencia), muere (no entra a rescatadas)
                 else:
-                    # Caso 2: El agente no está en la celda de la víctima
-                    # Sigue viva únicamente si su tiempo aún no se ha vencido
                     if nuevo_tick <= v.ticks_supervivencia:
                         nuevas_vivas.add(id_v)
-                    # Si nuevo_tick > v.ticks_supervivencia, muere por tiempo agotado
 
             nuevo_estado = Estado(
                 fila=nueva_fila,
