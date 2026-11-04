@@ -1,6 +1,6 @@
 """
 Interfaz Gráfica de Usuario (GUI) construida exclusivamente con Tkinter nativo.
-Implementa el lienzo Canvas y la animación tick a tick no bloqueante (Tarjeta 4.2).
+Incluye Lienzo Canvas animado y Panel de Estadísticas con Tabla Comparativa (Tarjeta 4.3).
 """
 
 import os
@@ -18,18 +18,23 @@ from src.algorithms.astar import busqueda_a_estrella
 
 class AppRescate:
     """
-    Ventana principal de escritorio para el Agente de Rescate con simulación animada.
+    Ventana principal de escritorio para el Agente de Rescate con simulación animada,
+    panel de estadísticas individuales y tabla comparativa de los 4 algoritmos.
     """
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Agente de Rescate con Víctimas en Riesgo - IA")
-        self.root.geometry("1150x780")
-        self.root.minsize(950, 650)
+        self.root.title("Agente de Rescate con Víctimas en Riesgo - Inteligencia Artificial")
+        self.root.geometry("1200x820")
+        self.root.minsize(1000, 700)
 
         self.style = ttk.Style()
         self.style.theme_use("clam")
 
-        # Estado de datos del problema
+        # Configurar estilos de tablas y botones
+        self.style.configure("Treeview.Heading", font=("Helvetica", 9, "bold"))
+        self.style.configure("Treeview", font=("Consolas", 9), rowheight=24)
+
+        # Estado de datos
         self.ruta_mapa: Optional[str] = None
         self.ruta_victimas: Optional[str] = None
         self.mapa: Optional[Mapa] = None
@@ -42,7 +47,6 @@ class AppRescate:
         self.paso_actual: int = 0
         self.after_id = None
         
-        # Historial de estados de víctimas en la simulación
         self.victimas_salvadas_anim: Set[str] = set()
         self.victimas_muertas_anim: Set[str] = set()
 
@@ -52,55 +56,47 @@ class AppRescate:
         panel_principal = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
         panel_principal.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Columna Izquierda: Controles
-        col_izquierda = ttk.Frame(panel_principal, width=340, padding=10)
+        # ==========================================
+        # COLUMNA IZQUIERDA: CONTROLES
+        # ==========================================
+        col_izquierda = ttk.Frame(panel_principal, width=350, padding=10)
         panel_principal.add(col_izquierda, weight=1)
 
         self._crear_panel_archivos(col_izquierda)
         self._crear_panel_configuracion(col_izquierda)
-        self._crear_panel_resumen(col_izquierda)
+        self._crear_panel_resumen_mapa(col_izquierda)
 
-        # Columna Derecha: Canvas y Estadísticas
+        # ==========================================
+        # COLUMNA DERECHA: VISUALIZACIÓN Y RESULTADOS
+        # ==========================================
         col_derecha = ttk.Frame(panel_principal, padding=10)
         panel_principal.add(col_derecha, weight=3)
 
-        # Barra superior del visor con información del tick
+        # Barra de estado superior
         header_visor = ttk.Frame(col_derecha)
         header_visor.pack(fill=tk.X, pady=(0, 5))
 
-        lbl_visor = ttk.Label(header_visor, text="Visualización del Entorno de Rescate", font=("Helvetica", 12, "bold"))
-        lbl_visor.pack(side=tk.LEFT)
-
+        ttk.Label(header_visor, text="Visualización del Entorno de Rescate", font=("Helvetica", 12, "bold")).pack(side=tk.LEFT)
         self.lbl_tick_actual = ttk.Label(header_visor, text="Tick: 0", font=("Consolas", 12, "bold"), foreground="#0066CC")
         self.lbl_tick_actual.pack(side=tk.RIGHT)
 
         # Canvas con bordes
         self.canvas_frame = ttk.Frame(col_derecha, borderwidth=2, relief=tk.GROOVE)
-        self.canvas_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        self.canvas_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
 
         self.canvas = tk.Canvas(self.canvas_frame, bg="#2C3437")
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
         self._mostrar_placeholder_canvas()
-
-        # Leyenda de Colores
         self._crear_leyenda_colores(col_derecha)
 
-        # Panel de Resultados
-        self.panel_stats_frame = ttk.LabelFrame(col_derecha, text="Panel de Resultados y Comparación", padding=10)
-        self.panel_stats_frame.pack(fill=tk.X)
-
-        self.lbl_stats_resumen = ttk.Label(
-            self.panel_stats_frame,
-            text="Esperando ejecución del rescate...",
-            font=("Consolas", 10)
-        )
-        self.lbl_stats_resumen.pack(anchor=tk.W)
+        # Panel de Estadísticas y Tabla Comparativa
+        self._crear_panel_estadisticas_y_tabla(col_derecha)
 
     def _mostrar_placeholder_canvas(self):
         self.canvas.delete("all")
         self.canvas.create_text(
-            350, 200,
+            380, 180,
             text="Cargue el mapa y las víctimas para comenzar la simulación",
             fill="#AAAAAA",
             font=("Helvetica", 13, "italic"),
@@ -108,9 +104,8 @@ class AppRescate:
         )
 
     def _crear_leyenda_colores(self, parent: ttk.Frame):
-        """Muestra la guía visual de colores requerida por el PDF."""
         frame_leyenda = ttk.Frame(parent)
-        frame_leyenda.pack(fill=tk.X, pady=(0, 5))
+        frame_leyenda.pack(fill=tk.X, pady=(0, 8))
 
         elementos = [
             ("Muro (#)", "#1F2421", "white"),
@@ -128,7 +123,6 @@ class AppRescate:
         frame_archivos = ttk.LabelFrame(parent, text="1. Carga de Archivos", padding=10)
         frame_archivos.pack(fill=tk.X, pady=(0, 10))
 
-        # Mapa.txt
         ttk.Label(frame_archivos, text="Archivo de Mapa:", font=("Helvetica", 9, "bold")).pack(anchor=tk.W)
         fila_mapa = ttk.Frame(frame_archivos)
         fila_mapa.pack(fill=tk.X, pady=(2, 6))
@@ -142,7 +136,6 @@ class AppRescate:
         self.lbl_ruta_mapa = ttk.Label(frame_archivos, text="Ningún archivo seleccionado", font=("Helvetica", 8), foreground="#666666")
         self.lbl_ruta_mapa.pack(anchor=tk.W, pady=(0, 8))
 
-        # Victimas.txt
         ttk.Label(frame_archivos, text="Archivo de Víctimas:", font=("Helvetica", 9, "bold")).pack(anchor=tk.W)
         fila_vic = ttk.Frame(frame_archivos)
         fila_vic.pack(fill=tk.X, pady=(2, 6))
@@ -185,7 +178,7 @@ class AppRescate:
         self.btn_iniciar.pack(fill=tk.X, ipady=4, pady=(2, 4))
 
         fila_botones_anim = ttk.Frame(frame_config)
-        fila_botones_anim.pack(fill=tk.X, pady=(2, 0))
+        fila_botones_anim.pack(fill=tk.X, pady=(2, 6))
 
         self.btn_pausa = ttk.Button(fila_botones_anim, text="⏸ Pausar", command=self._pausar_animacion, state=tk.DISABLED)
         self.btn_pausa.pack(side=tk.LEFT, expand=True, fill=tk.X, padx=(0, 2))
@@ -193,7 +186,15 @@ class AppRescate:
         self.btn_reiniciar = ttk.Button(fila_botones_anim, text="🔄 Reiniciar", command=self._reiniciar_animacion, state=tk.DISABLED)
         self.btn_reiniciar.pack(side=tk.RIGHT, expand=True, fill=tk.X, padx=(2, 0))
 
-    def _crear_panel_resumen(self, parent: ttk.Frame):
+        # Botón para ejecutar la comparación de los 4 algoritmos de una vez
+        self.btn_comparar_todos = ttk.Button(
+            frame_config,
+            text="📊 Comparar los 4 Algoritmos",
+            command=self._comparar_todos_los_algoritmos
+        )
+        self.btn_comparar_todos.pack(fill=tk.X, ipady=3, pady=(4, 0))
+
+    def _crear_panel_resumen_mapa(self, parent: ttk.Frame):
         frame_info = ttk.LabelFrame(parent, text="Información del Mapa", padding=10)
         frame_info.pack(fill=tk.BOTH, expand=True)
 
@@ -203,6 +204,57 @@ class AppRescate:
             font=("Consolas", 9)
         )
         self.lbl_info_mapa.pack(anchor=tk.W)
+
+    def _crear_panel_estadisticas_y_tabla(self, parent: ttk.Frame):
+        """5. Panel de estadísticas y tabla comparativa exactamente como en el PDF."""
+        frame_resultados = ttk.LabelFrame(parent, text="5. Estadísticas de Ejecución y Comparación", padding=10)
+        frame_resultados.pack(fill=tk.BOTH, expand=False)
+
+        # Contenedor horizontal: Tarjeta de Resumen Individual (Izquierda) | Tabla Comparativa (Derecha)
+        fila_stats = ttk.Frame(frame_resultados)
+        fila_stats.pack(fill=tk.BOTH, expand=True)
+
+        # 1. Resumen Individual en formato caja
+        frame_caja_resumen = ttk.LabelFrame(fila_stats, text="RESULTADO DE LA SIMULACIÓN", padding=8)
+        frame_caja_resumen.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
+
+        self.lbl_resumen_detallado = ttk.Label(
+            frame_caja_resumen,
+            text=(
+                "Víctimas totales    : ---\n"
+                "Víctimas rescatadas : ---\n"
+                "Víctimas fallecidas : ---\n"
+                "Ticks totales       : ---\n"
+                "Nodos expandidos    : ---\n"
+                "Tiempo de cómputo   : ---"
+            ),
+            font=("Consolas", 9),
+            justify=tk.LEFT
+        )
+        self.lbl_resumen_detallado.pack(anchor=tk.W)
+
+        # 2. Tabla Comparativa de Algoritmos (Treeview)
+        frame_tabla = ttk.LabelFrame(fila_stats, text="COMPARACIÓN DE ALGORITMOS", padding=8)
+        frame_tabla.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        columnas = ("algoritmo", "nodos", "tiempo", "rescatadas", "fallecidas", "ticks")
+        self.tree_comparacion = ttk.Treeview(frame_tabla, columns=columnas, show="headings", height=5)
+
+        self.tree_comparacion.heading("algoritmo", text="Algoritmo")
+        self.tree_comparacion.heading("nodos", text="Nodos")
+        self.tree_comparacion.heading("tiempo", text="Tiempo")
+        self.tree_comparacion.heading("rescatadas", text="Rescatadas")
+        self.tree_comparacion.heading("fallecidas", text="Fallecidas")
+        self.tree_comparacion.heading("ticks", text="Ticks")
+
+        self.tree_comparacion.column("algoritmo", width=85, anchor=tk.CENTER)
+        self.tree_comparacion.column("nodos", width=80, anchor=tk.E)
+        self.tree_comparacion.column("tiempo", width=85, anchor=tk.E)
+        self.tree_comparacion.column("rescatadas", width=85, anchor=tk.CENTER)
+        self.tree_comparacion.column("fallecidas", width=85, anchor=tk.CENTER)
+        self.tree_comparacion.column("ticks", width=65, anchor=tk.CENTER)
+
+        self.tree_comparacion.pack(fill=tk.BOTH, expand=True)
 
     def _actualizar_etiqueta_velocidad(self, val):
         ms = int(float(val))
@@ -258,9 +310,6 @@ class AppRescate:
         self.lbl_info_mapa.config(text=txt_mapa + txt_vic)
 
     def _dibujar_mapa_estatico(self, pos_agente: Optional[Tuple[int, int]] = None, tick_actual: int = 0):
-        """
-        Dibuja el mapa completo en el Canvas con el estado visual en el tick especificado.
-        """
         if not self.mapa:
             return
 
@@ -270,13 +319,12 @@ class AppRescate:
 
         if ancho_canvas < 50 or alto_canvas < 50:
             ancho_canvas = 650
-            alto_canvas = 450
+            alto_canvas = 380
 
-        # Dimensiones de cada celda
         margen = 20
         celda_w = (ancho_canvas - 2 * margen) / self.mapa.columnas
         celda_h = (alto_canvas - 2 * margen) / self.mapa.filas
-        tam_celda = max(20, min(celda_w, celda_h, 65))
+        tam_celda = max(18, min(celda_w, celda_h, 60))
 
         offset_x = (ancho_canvas - (tam_celda * self.mapa.columnas)) / 2
         offset_y = (alto_canvas - (tam_celda * self.mapa.filas)) / 2
@@ -284,7 +332,7 @@ class AppRescate:
         if pos_agente is None:
             pos_agente = self.mapa.inicio
 
-        # 1. Dibujar celdas base (Muros y Caminos)
+        # 1. Muros y Caminos
         for r in range(self.mapa.filas):
             for c in range(self.mapa.columnas):
                 x1 = offset_x + c * tam_celda
@@ -298,7 +346,7 @@ class AppRescate:
                 else:
                     self.canvas.create_rectangle(x1, y1, x2, y2, fill="#ECEFF1", outline="#BDC3C7")
 
-        # 2. Dibujar casilla de inicio 'S'
+        # 2. Inicio 'S'
         sr, sc = self.mapa.inicio
         sx1 = offset_x + sc * tam_celda
         sy1 = offset_y + sr * tam_celda
@@ -307,7 +355,7 @@ class AppRescate:
             text="S", fill="#7F8C8D", font=("Helvetica", int(tam_celda * 0.4), "bold")
         )
 
-        # 3. Dibujar Víctimas
+        # 3. Víctimas
         if self.victimas:
             for v in self.victimas.values():
                 vx1 = offset_x + v.columna * tam_celda
@@ -317,21 +365,16 @@ class AppRescate:
 
                 ticks_restantes = v.ticks_supervivencia - tick_actual
 
-                # Determinación de color del estado de la víctima
                 if v.id in self.victimas_salvadas_anim:
-                    # Rescatada (Verde)
                     color_fondo = "#27AE60"
                     texto_estado = f"{v.id}\n✓ SALVADA"
                 elif v.id in self.victimas_muertas_anim or ticks_restantes < 0:
-                    # Fallecida (Rojo)
                     color_fondo = "#E74C3C"
                     texto_estado = f"{v.id}\n✗ MUERTA"
                 else:
-                    # Viva en riesgo (Naranja) con contador de ticks restantes visible
                     color_fondo = "#F39C12"
                     texto_estado = f"{v.id}\n⏱ {ticks_restantes}"
 
-                # Círculo o rectángulo redondeado de la víctima
                 pad = tam_celda * 0.08
                 self.canvas.create_oval(vx1 + pad, vy1 + pad, vx2 - pad, vy2 - pad, fill=color_fondo, outline="#FFFFFF", width=2)
                 self.canvas.create_text(
@@ -341,7 +384,7 @@ class AppRescate:
                     justify=tk.CENTER
                 )
 
-        # 4. Dibujar Agente de Rescate en su posición actual
+        # 4. Agente
         ar, ac = pos_agente
         ax1 = offset_x + ac * tam_celda
         ay1 = offset_y + ar * tam_celda
@@ -360,7 +403,6 @@ class AppRescate:
         )
 
     def _iniciar_rescate(self):
-        """Ejecuta el algoritmo y lanza la simulación animada tick a tick."""
         if not self.mapa:
             messagebox.showwarning("Falta Mapa", "Por favor cargue un archivo de mapa válido primero.")
             return
@@ -368,7 +410,6 @@ class AppRescate:
             messagebox.showwarning("Faltan Víctimas", "Por favor cargue un archivo de víctimas válido primero.")
             return
 
-        # Cancelar cualquier animación previa en curso
         if self.after_id:
             self.root.after_cancel(self.after_id)
             self.after_id = None
@@ -388,7 +429,13 @@ class AppRescate:
 
         self.resultado_actual = resultado
 
-        # Preparar la animación
+        # Actualizar panel de resumen individual
+        self._actualizar_panel_resumen_individual(resultado)
+
+        # Agregar o actualizar la fila de este algoritmo en la tabla comparativa
+        self._actualizar_fila_tabla(resultado)
+
+        # Preparar y lanzar animación
         self.paso_actual = 0
         self.animacion_activa = True
         self.animacion_pausada = False
@@ -399,11 +446,9 @@ class AppRescate:
         self.btn_reiniciar.config(state=tk.NORMAL)
         self.btn_iniciar.config(state=tk.DISABLED)
 
-        # Iniciar bucle de animación
         self._siguiente_paso_animacion()
 
     def _siguiente_paso_animacion(self):
-        """Avanza 1 tick de simulación y programa el siguiente con after()."""
         if not self.animacion_activa or self.animacion_pausada:
             return
 
@@ -416,39 +461,81 @@ class AppRescate:
             tick = self.paso_actual
             self.lbl_tick_actual.config(text=f"Tick: {tick} ({accion if accion else 'Inicio'})")
 
-            # Actualizar estado de las víctimas para este tick
             for v in self.victimas.values():
                 if v.id in self.victimas_salvadas_anim:
                     continue
-                # Si el agente pisa la celda de la víctima
                 if v.fila == r and v.columna == c:
                     if tick <= v.ticks_supervivencia:
                         self.victimas_salvadas_anim.add(v.id)
                 else:
-                    # Si no llegó a tiempo y sus ticks llegaron a 0
                     if tick > v.ticks_supervivencia:
                         self.victimas_muertas_anim.add(v.id)
 
-            # Dibujar el fotograma actual en el Canvas
             self._dibujar_mapa_estatico(pos_agente=(r, c), tick_actual=tick)
 
             self.paso_actual += 1
             delay = int(self.scale_velocidad.get())
             self.after_id = self.root.after(delay, self._siguiente_paso_animacion)
         else:
-            # Simulación terminada
             self.animacion_activa = False
             self.btn_iniciar.config(state=tk.NORMAL)
             self.btn_pausa.config(state=tk.DISABLED)
 
-            res = self.resultado_actual
-            self.lbl_stats_resumen.config(
-                text=(
-                    f"SIMULACIÓN FINALIZADA | [{res.algoritmo}] Rescatadas: {res.rescatadas}/{res.victimas_totales} | "
-                    f"Fallecidas: {res.fallecidas} | Ticks totales: {res.ticks_totales} | "
-                    f"Nodos: {res.nodos_expandidos} | Tiempo: {res.tiempo_segundos:.4f}s"
-                )
-            )
+    def _actualizar_panel_resumen_individual(self, res: ResultadoBusqueda):
+        """Actualiza la caja de resumen individual con el formato del PDF."""
+        texto = (
+            f"Víctimas totales    : {res.victimas_totales}\n"
+            f"Víctimas rescatadas : {res.rescatadas}  (✓)\n"
+            f"Víctimas fallecidas : {res.fallecidas}  (✗)\n"
+            f"Ticks totales       : {res.ticks_totales}\n"
+            f"Nodos expandidos    : {res.nodos_expandidos}\n"
+            f"Tiempo de cómputo   : {res.tiempo_segundos:.4f}s"
+        )
+        self.lbl_resumen_detallado.config(text=texto)
+
+    def _actualizar_fila_tabla(self, res: ResultadoBusqueda):
+        """Inserta o actualiza la fila de un algoritmo en la tabla comparativa."""
+        # Verificar si ya existe en la tabla para actualizarlo
+        for item in self.tree_comparacion.get_children():
+            if self.tree_comparacion.item(item, "values")[0] == res.algoritmo:
+                self.tree_comparacion.delete(item)
+
+        valores = (
+            res.algoritmo,
+            str(res.nodos_expandidos),
+            f"{res.tiempo_segundos:.4f}s",
+            str(res.rescatadas),
+            str(res.fallecidas),
+            str(res.ticks_totales)
+        )
+        self.tree_comparacion.insert("", tk.END, values=valores)
+
+    def _comparar_todos_los_algoritmos(self):
+        """Ejecuta los 4 algoritmos secuencialmente y llena la tabla completa."""
+        if not self.mapa or not self.victimas:
+            messagebox.showwarning("Datos Requeridos", "Debe cargar el mapa y las víctimas antes de comparar.")
+            return
+
+        # Limpiar tabla
+        for item in self.tree_comparacion.get_children():
+            self.tree_comparacion.delete(item)
+
+        # Ejecutar los 4 algoritmos
+        algoritmos_funcs = [
+            busqueda_amplitud,
+            busqueda_costo_uniforme,
+            lambda m, v: busqueda_profundidad_iterativa(m, v, limite_maximo_cota=16),
+            busqueda_a_estrella
+        ]
+
+        for func in algoritmos_funcs:
+            resultado = func(self.mapa, self.victimas)
+            self._actualizar_fila_tabla(resultado)
+
+        messagebox.showinfo(
+            "Comparación Exitosa",
+            "Los 4 algoritmos fueron ejecutados y comparados con éxito en la tabla inferior."
+        )
 
     def _pausar_animacion(self):
         if self.animacion_pausada:
