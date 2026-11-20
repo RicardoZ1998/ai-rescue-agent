@@ -155,10 +155,10 @@ Se ejecutan desde la raíz del proyecto, por ejemplo `python -m tests.test_astar
 
 | Algoritmo | Nodos expandidos | Tiempo | Rescatadas | Fallecidas | Ticks |
 | --- | --- | --- | --- | --- | --- |
-| BFS | 509 | 0.0018s | 3 | 2 | 14 |
-| UCS | 509 | 0.0017s  | 3 | 2 | 14 |
-| IDDFS (cota 16) | 541.204 | 0.9220s | 3 | 2 | 14 |
-| A\* | 99 | 0.0005s | 3 | 2 | 14 |
+BFS        | 172      | 0.0006s   | 3          | 2          | 14 
+UCS        | 172      | 0.0007s   | 3          | 2          | 14    
+IDDFS      | 1257     | 0.0034s   | 3          | 2          | 14    
+A*         | 35       | 0.0002s   | 3          | 2          | 14    
 
 Los tiempos son de una ejecución y dependen del equipo; los nodos son deterministas.
 
