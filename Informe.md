@@ -1,8 +1,8 @@
-# Informe
+# Agente de Rescate con Víctimas en Riesgo
 
 **Proyecto 1 · Grupo 51 · Introducción a la Inteligencia Artificial**
 
-Integrantes: * Juan Eduardo Calderon Jaramillo / Jesus David Lopez Diaz / Ricardo Zuluaga Pulgarin *
+Integrantes: Juan Eduardo Calderon Jaramillo, Jesus David Lopez Diaz, Ricardo Zuluaga Pulgarin
 
 ## 1. Introducción
 
@@ -34,7 +34,7 @@ Víctimas (`victimas.txt`), con el agente iniciando en (1, 1) en el tick 0:
 | V4 | (2, 8) | 20 | 8 | Alcanzable |
 | V5 | (4, 5) | 7 | 7 | Alcanzable, con margen justo |
 
-Dos hechos de los datos condicionan todo el análisis posterior. V3 está condenada desde el tick 0 porque ni en línea recta alcanza a llegar. V2 está definida sobre una celda con pared, por lo que ninguna ruta válida puede pisarla (el cargador solo imprime una advertencia y no rechaza el archivo). Por tanto, **el máximo teórico de rescates en este mapa es 3** (V1, V4 y V5).
+Dos hechos de los datos condicionan todo el análisis posterior. V3 está condenada desde el tick 0 porque ni en línea recta alcanza a llegar. V2 está definida sobre una celda con pared, (3, 7): así viene en los datos de la rúbrica del proyecto y es parte del caso de prueba, no un error de captura. Ninguna ruta válida puede pisar esa celda, por lo que V2 nunca se rescata; el cargador, en lugar de rechazar el archivo, solo imprime una advertencia en consola. Por tanto, **el máximo teórico de rescates en este mapa es 3** (V1, V4 y V5).
 
 ## 3. Representación del estado
 
@@ -52,7 +52,7 @@ La clase `Estado` añade además el conjunto de víctimas rescatadas, el estado 
 | `tick_actual` | int | Movimientos realizados (también es el costo acumulado g) |
 | `padre`, `accion` | Estado, str | Permiten reconstruir la ruta (N, S, E, O) |
 
-**Por qué esta representación.** Las víctimas fallecidas no se guardan: son las que no están ni vivas ni rescatadas, de modo que `fallecidas = totales − rescatadas − vivas`. Se usan `frozenset` porque son inmutables y hasheables.
+**¿Por qué esta representación?** Las víctimas fallecidas no se guardan: son las que no están ni vivas ni rescatadas, de modo que `fallecidas = totales − rescatadas − vivas`. Se usan `frozenset` porque son inmutables y hasheables.
 
 **Hash e igualdad.** `__hash__` y `__eq__` se definen sobre la tupla (fila, columna, vivas, rescatadas, tick). El padre y la acción no entran en la identidad, porque dos caminos distintos que llegan al mismo estado deben contar como el mismo estado. Esto hace al estado compatible con conjuntos de visitados, diccionarios de costos y colas de prioridad.
 
@@ -149,18 +149,19 @@ La animación recorre la lista de pasos del resultado y se reprograma con `after
 | `test_astar.py` | Mapa mínimo; en el mapa oficial exige 3 rescatadas en 14 ticks; compara los 4 algoritmos y exige que A\* expanda menos nodos que BFS |
 | `test_gui.py` | Creación de la ventana y de sus widgets principales (requiere un entorno con Tkinter y pantalla) |
 
-Se ejecutan desde la raíz del proyecto, por ejemplo `python -m tests.test_astar`.
+Se ejecutan desde la raíz del proyecto, por ejemplo `python -m tests.test_astar` (en Windows, `py -m tests.test_astar`). Resultado: los 8 archivos de prueba pasan en el equipo del grupo, con todas las verificaciones en \[OK\], incluida la creación de la ventana de Tkinter en `test_gui.py`.
 
 ### 8.2 Comparación de los 4 algoritmos (mapa oficial)
 
 | Algoritmo | Nodos expandidos | Tiempo | Rescatadas | Fallecidas | Ticks |
 | --- | --- | --- | --- | --- | --- |
-| BFS | 509 | 0.0018s | 3 | 2 | 14 |
-| UCS | 509 | 0.0017s  | 3 | 2 | 14 |
-| IDDFS (cota 16) | 541.204 | 0.9220s | 3 | 2 | 14 |
-| A\* | 99 | 0.0005s | 3 | 2 | 14 |
+| BFS | 509 | 0,0015 s | 3 | 2 | 14 |
+| UCS | 509 | 0,0017 s | 3 | 2 | 14 |
+| IDDFS (cota 16) | 541.204 | 0,98 s | 3 | 2 | 14 |
+| A\* | 99 | 0,0005 s | 3 | 2 | 14 |
+| IDDFS (cota por defecto, 25) | 4.521.205 | 8,34 s | 3 | 2 | 14 |
 
-Los tiempos son de una ejecución y dependen del equipo; los nodos son deterministas.
+Tiempos medidos por el grupo en su equipo, en una sola ejecución: varían entre ejecuciones y equipos, mientras que los nodos son deterministas. Las cuatro primeras filas salen de la tabla comparativa de `test_astar.py` (cota 16, la misma que usa la GUI); la última sale de `test_iddfs.py`, que usa la cota por defecto (el menor valor entre 50 y el máximo de ticks de supervivencia + 5, es decir 25).
 
 ### 8.3 Ruta encontrada (idéntica en los cuatro algoritmos)
 
@@ -175,20 +176,21 @@ E, E, E, S, S, S, E, E, N, N, N, E, E, S (14 movimientos):
 
 ### 8.4 Traza de A\* (primeras 8 expansiones)
 
-La prioridad es (pérdidas, distancia, g). El estado inicial tiene h = (1, 3): una pérdida estimada (V3) y distancia 3 a la víctima alcanzable más cercana (V1). "Hijos creados" son los sucesores que entraron a la frontera.
+La prioridad de cada nodo es la tupla (pérdidas, distancia, g). El estado inicial tiene h = (1, 3): una pérdida estimada (V3) y distancia 3 a la víctima alcanzable más cercana (V1). En «Expande» aparecen la celda, el tick y la prioridad del nodo; en «Hijos creados», cada sucesor que entró a la frontera, como celda, acción y \[pérdidas, distancia\].
 
-| Paso | Expande (celda, tick, prioridad) | Hijos creados (celda, pérdidas, dist.) | Frontera después |
+| Paso | Expande | Hijos creados | Frontera después |
 | --- | --- | --- | --- |
-| 1 | (1,1), t0, (1,3,0) | (2,1) → (1,4); (1,2) → (1,2) | 2 nodos |
-| 2 | (1,2), t1, (1,2,1) | (1,3) → (1,1); (1,1) → (2,3) | 3 nodos |
-| 3 | (1,3), t2, (1,1,2) | (1,4) → (1,4); (1,2) → (2,2) | 4 nodos |
-| 4 | (2,1), t1, (1,4,1) | (3,1) → (2,5) | 4 nodos |
-| 5 | (1,4), t3, (1,4,3) | (2,4) → (1,3); (1,3) → (2,6) | 5 nodos |
-| 6 | (2,4), t4, (1,3,4) | (1,4) → (2,5); (3,4) → (1,2) | 6 nodos |
-| 7 | (3,4), t5, (1,2,5) | (2,4) → (2,4); (4,4) → (1,1); (3,3) → (2,4) | 8 nodos |
-| 8 | (4,4), t6, (1,1,6) | (3,4) → (2,3); (5,4) → (2,5); (4,5) → (1,3) | 10 nodos |
+| 1 | (1,1) t0 · (1,3,0) | (2,1) S \[1,4\]; (1,2) E \[1,2\] | 2 nodos; sigue (1,2) |
+| 2 | (1,2) t1 · (1,2,1) | (1,3) E \[1,1\]; (1,1) O \[2,3\] | 3 nodos; sigue (1,3) |
+| 3 | (1,3) t2 · (1,1,2) | (1,4) E \[1,4\]; (1,2) O \[2,2\] | 4 nodos; sigue (2,1) |
+| 4 | (2,1) t1 · (1,4,1) | (3,1) S \[2,5\] | 4 nodos; sigue (1,4) |
+| 5 | (1,4) t3 · (1,4,3) | (2,4) S \[1,3\]; (1,3) O \[2,6\] | 5 nodos; sigue (2,4) |
+| 6 | (2,4) t4 · (1,3,4) | (1,4) N \[2,5\]; (3,4) S \[1,2\] | 6 nodos; sigue (3,4) |
+| 7 | (3,4) t5 · (1,2,5) | (2,4) N \[2,4\]; (4,4) S \[1,1\]; (3,3) O \[2,4\] | 8 nodos; sigue (4,4) |
+| 8 | (4,4) t6 · (1,1,6) | (3,4) N \[2,3\]; (5,4) S \[2,5\]; (4,5) E \[1,3\] | 10 nodos; sigue (4,5) |
 
 Se observa cómo la frontera da prioridad a los nodos que conservan solo la pérdida inevitable (V3) y se acercan a una víctima alcanzable, y cómo los retrocesos suben a 2 pérdidas estimadas porque dejan a otra víctima fuera de alcance.
+
 
 ## 9. Análisis
 
@@ -196,7 +198,7 @@ Se observa cómo la frontera da prioridad a los nodos que conservan solo la pér
 
 **BFS y UCS.** Expanden exactamente los mismos nodos (509). Con costo unitario por acción, el costo g equivale al nivel de profundidad, así que UCS degenera en BFS; la diferencia es solo la estructura (cola FIFO frente a heap).
 
-**IDDFS.** Es el más costoso por mucho: 541.204 nodos, unas 1.000 veces más que BFS. Tiene memoria muy baja (solo guarda la rama actual), pero al no mantener un conjunto de visitados global vuelve a explorar los mismos estados por distintos caminos y además repite las iteraciones previas en cada nuevo límite. En un espacio donde muchos caminos llevan al mismo estado, eso se paga caro.
+**IDDFS.** Es el más costoso por mucho: 541.204 nodos con la cota 16 (unas 1.000 veces más que BFS) y 4.521.205 nodos, 8,3 s, con la cota por defecto de 25. Tiene memoria muy baja (solo guarda la rama actual), pero al no mantener un conjunto de visitados global vuelve a explorar los mismos estados por distintos caminos y además repite las iteraciones previas en cada nuevo límite; por eso crece tanto al subir la cota. En un espacio donde muchos caminos llevan al mismo estado, eso se paga caro.
 
 **A\*.** Expande 99 nodos, unas 5 veces menos que BFS y UCS, y es el más rápido. La ganancia proviene de dos fuentes: la heurística ordena la frontera hacia ramas con menos pérdidas inevitables y la poda por cota descarta ramas que ya no pueden superar la mejor solución. Como la heurística es admisible y monótona, no se pierde optimalidad.
 
@@ -207,12 +209,12 @@ Se observa cómo la frontera da prioridad a los nodos que conservan solo la pér
 - **Restricción blanda de víctimas críticas:** no se implementó (los datos no incluyen un campo de criticidad).
 - **Cota de IDDFS en la GUI:** se fija en 16 ticks por rendimiento; en un mapa con rutas óptimas más largas podría no hallar la mejor solución. El valor por defecto de la función es 50 (limitado a máx. ticks + 5).
 - **Heurística:** puede mejorarse usando distancias reales por BFS en lugar de Manhattan, y considerando el orden de visita de varias víctimas.
-- **Validación de datos:** una víctima sobre un muro solo genera una advertencia en consola; podría rechazarse o mostrarse en la GUI.
+- **Validación de datos:** el cargador no rechaza una víctima sobre un muro (como la V2 de los datos de la rúbrica), solo imprime una advertencia en consola; esa advertencia podría mostrarse también en la GUI.
 - **Interfaz:** los algoritmos corren en el hilo principal de Tkinter, por lo que mapas muy grandes congelarían la ventana mientras se calcula.
 
 ## 11. Conclusiones
 
-Se modeló el problema con un estado explícito, inmutable y hasheable que incluye la posición, las víctimas vivas y rescatadas y el tick, y se resolvió con cuatro estrategias que comparten una misma función sucesora y un mismo criterio de optimalidad (más rescatadas, luego menos ticks). En el mapa que se utiliza todos encuentran la solución óptima (3 de 5 víctimas en 14 ticks), pero con costos muy distintos: A\* con una heurística admisible reduce los nodos expandidos de 509 a 99 respecto a BFS y UCS, y IDDFS llega a más de 541 mil por no recordar estados ya visitados.
+Se modeló el problema con un estado explícito, inmutable y hasheable que incluye la posición, las víctimas vivas y rescatadas y el tick, y se resolvió con cuatro estrategias que comparten una misma función sucesora y un mismo criterio de optimalidad (más rescatadas, luego menos ticks). En el mapa proporcionado todos encuentran la solución óptima (3 de 5 víctimas en 14 ticks), pero con costos muy distintos: A\* con una heurística admisible reduce los nodos expandidos de 509 a 99 respecto a BFS y UCS, y IDDFS llega a más de 541 mil por no recordar estados ya visitados.
 
 ## Estructura del proyecto
 
