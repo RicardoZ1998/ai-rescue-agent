@@ -1,8 +1,8 @@
-# Agente de Rescate con Víctimas en Riesgo
+# Informe
 
 **Proyecto 1 · Grupo 51 · Introducción a la Inteligencia Artificial**
 
-Integrantes: *(completar)*
+Integrantes: * Juan Eduardo Calderon Jaramillo / Jesus David Lopez Diaz / Ricardo Zuluaga Pulgarin *
 
 ## 1. Introducción
 
