@@ -1,8 +1,8 @@
-# Agente de Rescate con Víctimas en Riesgo
+# Informe
 
 **Proyecto 1 · Grupo 51 · Introducción a la Inteligencia Artificial**
 
-Integrantes: *(completar)*
+Integrantes: * Juan Eduardo Calderon Jaramillo / Jesus David Lopez Diaz / Ricardo Zuluaga Pulgarin *
 
 ## 1. Introducción
 
@@ -155,10 +155,10 @@ Se ejecutan desde la raíz del proyecto, por ejemplo `python -m tests.test_astar
 
 | Algoritmo | Nodos expandidos | Tiempo | Rescatadas | Fallecidas | Ticks |
 | --- | --- | --- | --- | --- | --- |
-| BFS | 509 | ≈ 2,4 ms | 3 | 2 | 14 |
-| UCS | 509 | ≈ 2,1 ms | 3 | 2 | 14 |
-| IDDFS (cota 16) | 541.204 | ≈ 1,34 s | 3 | 2 | 14 |
-| A\* | 99 | ≈ 0,7 ms | 3 | 2 | 14 |
+| BFS | 509 | 0.0018s | 3 | 2 | 14 |
+| UCS | 509 | 0.0017s  | 3 | 2 | 14 |
+| IDDFS (cota 16) | 541.204 | 0.9220s | 3 | 2 | 14 |
+| A\* | 99 | 0.0005s | 3 | 2 | 14 |
 
 Los tiempos son de una ejecución y dependen del equipo; los nodos son deterministas.
 
@@ -212,9 +212,9 @@ Se observa cómo la frontera da prioridad a los nodos que conservan solo la pér
 
 ## 11. Conclusiones
 
-Se modeló el problema con un estado explícito, inmutable y hasheable que incluye la posición, las víctimas vivas y rescatadas y el tick, y se resolvió con cuatro estrategias que comparten una misma función sucesora y un mismo criterio de optimalidad (más rescatadas, luego menos ticks). En el mapa oficial todos encuentran la solución óptima (3 de 5 víctimas en 14 ticks), pero con costos muy distintos: A\* con una heurística admisible reduce los nodos expandidos de 509 a 99 respecto a BFS y UCS, y IDDFS llega a más de 541 mil por no recordar estados ya visitados.
+Se modeló el problema con un estado explícito, inmutable y hasheable que incluye la posición, las víctimas vivas y rescatadas y el tick, y se resolvió con cuatro estrategias que comparten una misma función sucesora y un mismo criterio de optimalidad (más rescatadas, luego menos ticks). En el mapa que se utiliza todos encuentran la solución óptima (3 de 5 víctimas en 14 ticks), pero con costos muy distintos: A\* con una heurística admisible reduce los nodos expandidos de 509 a 99 respecto a BFS y UCS, y IDDFS llega a más de 541 mil por no recordar estados ya visitados.
 
-## Anexo: estructura del proyecto
+## Estructura del proyecto
 
 ```
 main.py                    Punto de entrada
