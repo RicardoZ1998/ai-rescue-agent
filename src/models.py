@@ -90,6 +90,18 @@ class Estado:
             self.tick_actual == otro.tick_actual
         )
 
+    def clave(self) -> Tuple:
+        """
+        Clave de DOMINANCIA del estado: todo menos el tick.
+
+        Si se llega a la misma (posición, vivas, rescatadas) con un tick menor o
+        igual, ese camino domina al otro: se puede repetir exactamente la misma
+        secuencia de movimientos y todas las víctimas se alcanzan igual o antes.
+        Por eso, en los conjuntos de visitados se guarda el menor tick por clave.
+        (El tick sigue siendo parte del Estado, como pide el enunciado.)
+        """
+        return (self.fila, self.columna, self.victimas_vivas, self.victimas_rescatadas)
+
     def generar_sucesores(self, mapa: Mapa, dict_victimas: dict) -> List["Estado"]:
         """
         Genera los estados sucesores válidos aplicando las 4 acciones cardinales:

@@ -4,6 +4,8 @@ Incluye Lienzo Canvas animado y Panel de Estadísticas con Tabla Comparativa (Ta
 """
 
 import os
+import queue
+import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import Optional, Dict, List, Tuple, Set
@@ -416,17 +418,61 @@ class AppRescate:
 
         algoritmo = self.combo_algoritmo.get()
 
-        if algoritmo == "A*":
-            resultado = busqueda_a_estrella(self.mapa, self.victimas)
-        elif algoritmo == "BFS":
-            resultado = busqueda_amplitud(self.mapa, self.victimas)
-        elif algoritmo == "UCS":
-            resultado = busqueda_costo_uniforme(self.mapa, self.victimas)
-        elif algoritmo == "IDDFS":
-            resultado = busqueda_profundidad_iterativa(self.mapa, self.victimas, limite_maximo_cota=16)
-        else:
+        funciones = {
+            "A*": busqueda_a_estrella,
+            "BFS": busqueda_amplitud,
+            "UCS": busqueda_costo_uniforme,
+            "IDDFS": busqueda_profundidad_iterativa,  # sin tope artificial de profundidad
+        }
+        if algoritmo not in funciones:
             return
 
+        func = funciones[algoritmo]
+        # La búsqueda corre en un hilo aparte para que la ventana no se congele
+        self._ejecutar_en_hilo(
+            lambda: func(self.mapa, self.victimas),
+            self._lanzar_animacion
+        )
+
+    def _ejecutar_en_hilo(self, trabajo, al_terminar):
+        """
+        Ejecuta `trabajo()` (función pesada de búsqueda) en un hilo secundario y,
+        cuando termina, llama `al_terminar(resultado)` en el hilo principal de Tkinter
+        (Tkinter no es seguro entre hilos: el hilo solo calcula y deja el resultado
+        en una cola; la interfaz la revisa periódicamente con `after`).
+        """
+        self.btn_iniciar.config(state=tk.DISABLED)
+        self.btn_comparar_todos.config(state=tk.DISABLED)
+        self.lbl_tick_actual.config(text="Calculando...")
+        cola_resultado = queue.Queue()
+
+        def correr():
+            try:
+                cola_resultado.put((True, trabajo()))
+            except Exception as error:  # se reporta en la interfaz, no en el hilo
+                cola_resultado.put((False, error))
+
+        threading.Thread(target=correr, daemon=True).start()
+        self._revisar_hilo(cola_resultado, al_terminar)
+
+    def _revisar_hilo(self, cola_resultado, al_terminar):
+        """Revisa cada 50 ms si el hilo de búsqueda ya entregó su resultado."""
+        try:
+            exito, valor = cola_resultado.get_nowait()
+        except queue.Empty:
+            self.root.after(50, lambda: self._revisar_hilo(cola_resultado, al_terminar))
+            return
+
+        self.btn_comparar_todos.config(state=tk.NORMAL)
+        self.lbl_tick_actual.config(text="Tick: 0")
+        if exito:
+            al_terminar(valor)
+        else:
+            self.btn_iniciar.config(state=tk.NORMAL)
+            messagebox.showerror("Error en la búsqueda", str(valor))
+
+    def _lanzar_animacion(self, resultado: ResultadoBusqueda):
+        """Muestra estadísticas y arranca la animación con el resultado de la búsqueda."""
         self.resultado_actual = resultado
 
         # Actualizar panel de resumen individual
@@ -520,21 +566,26 @@ class AppRescate:
         for item in self.tree_comparacion.get_children():
             self.tree_comparacion.delete(item)
 
-        # Ejecutar los 4 algoritmos
         algoritmos_funcs = [
             busqueda_amplitud,
             busqueda_costo_uniforme,
-            lambda m, v: busqueda_profundidad_iterativa(m, v, limite_maximo_cota=16),
+            busqueda_profundidad_iterativa,
             busqueda_a_estrella
         ]
 
-        for func in algoritmos_funcs:
-            resultado = func(self.mapa, self.victimas)
-            self._actualizar_fila_tabla(resultado)
+        def mostrar(resultados):
+            for resultado in resultados:
+                self._actualizar_fila_tabla(resultado)
+            self.btn_iniciar.config(state=tk.NORMAL)
+            messagebox.showinfo(
+                "Comparación Exitosa",
+                "Los 4 algoritmos fueron ejecutados y comparados con éxito en la tabla inferior."
+            )
 
-        messagebox.showinfo(
-            "Comparación Exitosa",
-            "Los 4 algoritmos fueron ejecutados y comparados con éxito en la tabla inferior."
+        # Los 4 algoritmos corren en un hilo aparte para no congelar la ventana
+        self._ejecutar_en_hilo(
+            lambda: [func(self.mapa, self.victimas) for func in algoritmos_funcs],
+            mostrar
         )
 
     def _pausar_animacion(self):

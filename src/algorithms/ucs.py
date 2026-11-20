@@ -8,6 +8,7 @@ import heapq
 from typing import Dict, Optional
 from src.models import Mapa, Victima, Estado
 from src.evaluator import es_estado_objetivo, es_mejor_solucion
+from src.distancias import calcular_tabla_distancias
 from src.algorithms.bfs import ResultadoBusqueda
 
 
@@ -26,6 +27,9 @@ def busqueda_costo_uniforme(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Re
     victimas_totales = len(dict_victimas)
     contador_orden = 0
 
+    # Distancias reales (solo para el predicado de meta)
+    tabla = calcular_tabla_distancias(mapa, dict_victimas)
+
     # Estado Inicial: Agente en 'S', todas las víctimas vivas, tick = 0
     estado_inicial = Estado(
         fila=mapa.inicio[0],
@@ -40,7 +44,7 @@ def busqueda_costo_uniforme(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Re
     heapq.heappush(frontera, (0, contador_orden, estado_inicial))
 
     # Diccionario de costo mínimo conocido para alcanzar cada estado
-    costos_minimos = {estado_inicial: 0}
+    costos_minimos = {estado_inicial.clave(): 0}  # clave (sin tick) -> menor g conocido
 
     mejor_solucion: Optional[Estado] = None
 
@@ -49,11 +53,11 @@ def busqueda_costo_uniforme(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Re
         nodos_expandidos += 1
 
         # Si encontramos un camino más barato a este estado posteriormente, descartamos este
-        if costo_g > costos_minimos.get(estado_actual, float('inf')):
+        if costo_g > costos_minimos.get(estado_actual.clave(), float('inf')):
             continue
 
         # ¿Es un estado terminal/objetivo? (No quedan víctimas alcanzables)
-        if es_estado_objetivo(estado_actual, dict_victimas):
+        if es_estado_objetivo(estado_actual, dict_victimas, tabla):
             if es_mejor_solucion(candidato=estado_actual, actual_mejor=mejor_solucion):
                 mejor_solucion = estado_actual
                 # Si ya rescatamos a TODAS las víctimas posibles en el mapa, es óptimo
@@ -66,8 +70,8 @@ def busqueda_costo_uniforme(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Re
         for sucesor in estado_actual.generar_sucesores(mapa, dict_victimas):
             nuevo_costo = sucesor.tick_actual
 
-            if nuevo_costo < costos_minimos.get(sucesor, float('inf')):
-                costos_minimos[sucesor] = nuevo_costo
+            if nuevo_costo < costos_minimos.get(sucesor.clave(), float('inf')):
+                costos_minimos[sucesor.clave()] = nuevo_costo
                 contador_orden += 1
                 heapq.heappush(frontera, (nuevo_costo, contador_orden, sucesor))
 
@@ -80,4 +84,3 @@ def busqueda_costo_uniforme(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Re
         tiempo_segundos=tiempo_total,
         victimas_totales=victimas_totales
     )
-

@@ -8,6 +8,7 @@ from collections import deque
 from typing import Dict, List, Optional
 from src.models import Mapa, Victima, Estado
 from src.evaluator import es_estado_objetivo, es_mejor_solucion
+from src.distancias import calcular_tabla_distancias
 
 class ResultadoBusqueda:
     """
@@ -54,13 +55,18 @@ def busqueda_amplitud(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Resultad
     Ejecuta el algoritmo de Búsqueda en Amplitud (BFS).
     
     1. Utiliza una cola FIFO (deque).
-    2. Registra los estados visitados en un set para evitar ciclos.
+    2. Registra las CLAVES de estado visitadas (posición, vivas, rescatadas; sin tick).
+       BFS expande por tick creciente, así que la primera vez que se llega a una
+       clave es con el menor tick: cualquier llegada posterior está dominada.
     3. Busca la ruta que maximice las víctimas rescatadas.
     4. Mide tiempo de cómputo y nodos expandidos.
     """
     tiempo_inicio = time.perf_counter()
     nodos_expandidos = 0
     victimas_totales = len(dict_victimas)
+
+    # Distancias reales (solo para el predicado de meta: "¿hay víctimas alcanzables?")
+    tabla = calcular_tabla_distancias(mapa, dict_victimas)
 
     # Estado Inicial: Agente en 'S', todas las víctimas vivas, tick = 0
     estado_inicial = Estado(
@@ -75,7 +81,7 @@ def busqueda_amplitud(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Resultad
     cola = deque([estado_inicial])
     
     # Conjunto cerrado de estados visitados (evita ciclos)
-    visitados = set([estado_inicial])
+    visitados = {estado_inicial.clave()}
 
     mejor_solucion: Optional[Estado] = None
 
@@ -84,7 +90,7 @@ def busqueda_amplitud(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Resultad
         nodos_expandidos += 1
 
         # ¿Es un estado terminal/objetivo? (No quedan víctimas alcanzables)
-        if es_estado_objetivo(estado_actual, dict_victimas):
+        if es_estado_objetivo(estado_actual, dict_victimas, tabla):
             if es_mejor_solucion(candidato=estado_actual, actual_mejor=mejor_solucion):
                 mejor_solucion = estado_actual
                 # Si ya rescatamos a TODAS las víctimas posibles en el mapa, es la solución óptima absoluta
@@ -95,8 +101,8 @@ def busqueda_amplitud(mapa: Mapa, dict_victimas: Dict[str, Victima]) -> Resultad
 
         # Si aún hay esperanza de rescatar víctimas, generamos los sucesores
         for sucesor in estado_actual.generar_sucesores(mapa, dict_victimas):
-            if sucesor not in visitados:
-                visitados.add(sucesor)
+            if sucesor.clave() not in visitados:
+                visitados.add(sucesor.clave())
                 cola.append(sucesor)
 
     tiempo_total = time.perf_counter() - tiempo_inicio

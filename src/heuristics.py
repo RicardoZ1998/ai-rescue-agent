@@ -5,7 +5,7 @@ Demostración de admisibilidad incluida en la documentación de cada función.
 
 from typing import Dict, Tuple
 from src.models import Estado, Victima
-from src.evaluator import distancia_manhattan
+from src.evaluator import distancia_manhattan, distancia_a_victima
 
 
 def heuristica_victimas_condenadas(estado: Estado, dict_victimas: Dict[str, Victima]) -> int:
@@ -40,12 +40,16 @@ def heuristica_victimas_condenadas(estado: Estado, dict_victimas: Dict[str, Vict
     return condenadas
 
 
-def heuristica_a_estrella(estado: Estado, dict_victimas: Dict[str, Victima]) -> Tuple[int, int]:
+def heuristica_a_estrella(estado: Estado, dict_victimas: Dict[str, Victima], tabla=None) -> Tuple[int, int]:
     """
     Heurística compuesta para guiar eficientemente la cola de prioridad en A*.
     Retorna una tupla de dos valores:
     1. victimas_perdidas_estimadas:
        (víctimas ya fallecidas) + (víctimas actualmente condenadas por distancia Manhattan).
+       Si se entrega `tabla` (distancias reales por BFS) se usa en lugar de Manhattan.
+       Admisibilidad: distancia_real >= Manhattan, y una víctima solo se cuenta como
+       condenada si distancia_real > ticks_restantes, lo cual implica que NINGÚN
+       camino llega a tiempo. Nunca cuenta una muerte evitable => h(n) <= h*(n).
     2. distancia_minima_alcanzable:
        Distancia Manhattan hacia la víctima alcanzable más cercana (para romper empates
        y atraer al agente hacia el siguiente rescate con el menor rodeo posible).
@@ -65,7 +69,7 @@ def heuristica_a_estrella(estado: Estado, dict_victimas: Dict[str, Victima]) -> 
             condenadas += 1
             continue
 
-        dist = distancia_manhattan(pos_agente, (v.fila, v.columna))
+        dist = distancia_a_victima(pos_agente, v, tabla)
         if dist > ticks_restantes:
             condenadas += 1
         else:
@@ -79,4 +83,3 @@ def heuristica_a_estrella(estado: Estado, dict_victimas: Dict[str, Victima]) -> 
     total_perdidas = ya_fallecidas + condenadas
 
     return total_perdidas, distancia_minima
-
